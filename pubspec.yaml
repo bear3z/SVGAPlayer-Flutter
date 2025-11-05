@@ -1,6 +1,6 @@
 name: svgaplayer_3
 description: The SVGAPlayer implementation of Flutter using CustomPainter.
-version: 3.0.1
+version: 3.1.1
 homepage: https://github.com/bear3z/SVGAPlayer-Flutter
 
 environment:
@@ -13,6 +13,9 @@ dependencies:
   http: ^1.2.2
   path_drawing: ^1.0.0
   archive: ^3.1.2
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.2
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

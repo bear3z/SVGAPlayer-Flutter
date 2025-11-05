@@ -4,7 +4,20 @@ import 'package:svgaplayer_flutter_example/sample.dart';
 
 import 'constants.dart';
 
-void main() => runApp(ExampleApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SVGA cache with custom configuration
+  await SVGACacheManager.instance.initialize(
+    const SVGACacheConfig(
+      maxCacheSize: 50, // Cache up to 50 files
+      cacheExpirationDays: 7, // Files expire after 7 days
+      maxFileSizeBytes: 5 * 1024 * 1024, // Don't cache files larger than 5MB
+    ),
+  );
+
+  runApp(ExampleApp());
+}
 
 class ExampleApp extends StatelessWidget {
   const ExampleApp({
@@ -55,6 +68,33 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('SVGA Flutter Samples'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              switch (value) {
+                case 'cache_stats':
+                  _showCacheStats(context);
+                  break;
+                case 'clear_cache':
+                  await SVGACacheManager.instance.clearCache();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cache cleared successfully')),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'cache_stats',
+                child: Text('Cache Statistics'),
+              ),
+              const PopupMenuItem(
+                value: 'clear_cache',
+                child: Text('Clear Cache'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: ListView.separated(
         itemCount: samples.length,
@@ -86,5 +126,39 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
 
+  void _showCacheStats(BuildContext context) async {
+    try {
+      final stats = await SVGACacheManager.instance.getCacheStats();
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Cache Statistics'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total Files: ${stats['totalFiles']}'),
+              Text('Total Size: ${stats['totalSizeMB']} MB'),
+              Text('Expired Files: ${stats['expiredFiles']}'),
+              const SizedBox(height: 8),
+              Text('Max Cache Size: ${stats['maxCacheSize']} files'),
+              Text('Cache Expiration: ${stats['cacheExpirationDays']} days'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading cache stats: $e')),
+      );
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:svgaplayer_3/svgaplayer_flutter.dart';
 
 class SVGASampleScreen extends StatefulWidget {
@@ -19,8 +19,7 @@ class SVGASampleScreen extends StatefulWidget {
   SVGASampleScreenState createState() => SVGASampleScreenState();
 }
 
-class SVGASampleScreenState extends State<SVGASampleScreen>
-    with SingleTickerProviderStateMixin {
+class SVGASampleScreenState extends State<SVGASampleScreen> with SingleTickerProviderStateMixin {
   SVGAAnimationController? animationController;
   bool isLoading = true;
   Color backgroundColor = Colors.transparent;
@@ -54,8 +53,18 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
   }
 
   void _loadAnimation() async {
+    final stopwatch = Stopwatch()..start();
+
+    // Check if file will be loaded from cache (for network URLs only)
+    bool loadedFromCache = false;
+    if (widget.image.startsWith(RegExp(r'https?://'))) {
+      final cachedBytes = await SVGACacheManager.instance.getCachedFile(widget.image);
+      loadedFromCache = cachedBytes != null;
+    }
+
     // FIXME: may throw error on loading
     final videoItem = await _loadVideoItem(widget.image);
+    stopwatch.stop();
 
     if (widget.dynamicCallback != null) {
       widget.dynamicCallback!(videoItem);
@@ -66,6 +75,18 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
         animationController?.videoItem = videoItem;
         _playAnimation();
       });
+
+      // Show load time and cache status
+      if (widget.image.startsWith(RegExp(r'https?://'))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Loaded in ${stopwatch.elapsedMilliseconds}ms ${loadedFromCache ? '(from cache)' : '(downloaded)'}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -111,9 +132,7 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
           : FloatingActionButton.extended(
               label: Text(animationController!.isAnimating ? "Pause" : "Play"),
               icon: Icon(
-                animationController!.isAnimating
-                    ? Icons.pause
-                    : Icons.play_arrow,
+                animationController!.isAnimating ? Icons.pause : Icons.play_arrow,
               ),
               onPressed: () {
                 if (animationController?.isAnimating == true) {
@@ -133,7 +152,7 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
       padding: EdgeInsets.all(8.0),
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
-          showValueIndicator: ShowValueIndicator.always,
+          showValueIndicator: ShowValueIndicator.onDrag,
           trackHeight: 2,
           overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
           thumbShape: const RoundSliderThumbShape(
@@ -150,9 +169,7 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
                   hideOptions = !hideOptions;
                 });
               },
-              icon: hideOptions
-                  ? Icon(Icons.arrow_drop_up)
-                  : Icon(Icons.arrow_drop_down),
+              icon: hideOptions ? Icon(Icons.arrow_drop_up) : Icon(Icons.arrow_drop_down),
               label: Text(
                 hideOptions ? 'Show options' : 'Hide options',
               ),
@@ -178,8 +195,7 @@ class SVGASampleScreenState extends State<SVGASampleScreen>
                       if (animationController?.isAnimating == true) {
                         animationController?.stop();
                       }
-                      animationController?.value =
-                          v / animationController!.frames;
+                      animationController?.value = v / animationController!.frames;
                     },
                   );
                 },

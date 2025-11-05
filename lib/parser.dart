@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' show decodeImageFromList;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' show get;
 
+import 'cache_manager.dart';
 import 'proto/svga.pbserver.dart';
 
 const _filterKey = 'SVGAParser';
@@ -17,9 +18,32 @@ class SVGAParser {
   static const shared = SVGAParser();
 
   /// Download animation file from remote server, and decode it.
-  Future<MovieEntity> decodeFromURL(String url) async {
-    final response = await get(Uri.parse(url));
-    return decodeFromBuffer(response.bodyBytes);
+  /// Uses caching to avoid re-downloading files.
+  Future<MovieEntity> decodeFromURL(String url, {bool useCache = true}) async {
+    Uint8List bytes;
+
+    if (useCache) {
+      // Try to get from cache first
+      final cachedBytes = await SVGACacheManager.instance.getCachedFile(url);
+      if (cachedBytes != null) {
+        bytes = cachedBytes;
+      } else {
+        // Download and cache
+        final response = await get(Uri.parse(url));
+        bytes = response.bodyBytes;
+
+        // Cache the downloaded file (fire and forget)
+        SVGACacheManager.instance.cacheFile(url, bytes).catchError((_) {
+          // Caching failed, continue silently
+        });
+      }
+    } else {
+      // Download without caching
+      final response = await get(Uri.parse(url));
+      bytes = response.bodyBytes;
+    }
+
+    return decodeFromBuffer(bytes);
   }
 
   /// Download animation file from bundle assets, and decode it.
@@ -81,8 +105,7 @@ class SVGAParser {
 
       for (final FrameEntity frame in sprite.frames) {
         if (frame.shapes.isNotEmpty) {
-          if (frame.shapes.first.type == ShapeEntity_ShapeType.KEEP &&
-              lastShape != null) {
+          if (frame.shapes.first.type == ShapeEntity_ShapeType.KEEP && lastShape != null) {
             frame.shapes = lastShape;
           } else {
             lastShape = frame.shapes;
